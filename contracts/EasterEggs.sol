@@ -19,6 +19,7 @@ error InsufficientEggs();
 error InsuffiecientFunds();
 error TransactionError();
 
+/// @author Pavel Timenov
 contract EasterEggs is VRFConsumerBaseV2, KeeperCompatibleInterface {
     uint256 private constant ANSWER_FUNDS = 10000000000000;
     uint256 private constant EDIT_INTERVAL = 1500000;
@@ -53,6 +54,8 @@ contract EasterEggs is VRFConsumerBaseV2, KeeperCompatibleInterface {
     event AnswerPerformed(uint256 indexed indexOfAnswer);
     event AnswerPicked(uint256 indexed requestId);
 
+    /// @dev Modifier that checks if the sender is the owner of the smart contract
+    /// @param sender The address of the caller of the functions
     modifier onlyOwner(address sender) {
         if (sender != owner) {
             revert NotOwner();
@@ -60,6 +63,7 @@ contract EasterEggs is VRFConsumerBaseV2, KeeperCompatibleInterface {
         _;
     }
 
+    /// @dev Modifier that checks if the contract is open to generating and sending eggs
     modifier isOpen() {
         if (state != 1) {
             revert ContractClosed();
@@ -67,6 +71,8 @@ contract EasterEggs is VRFConsumerBaseV2, KeeperCompatibleInterface {
         _;
     }
 
+    /// @dev Modifier that checks if this is the first time the user generates egg
+    /// @param sender The address of the user that wants to generate egg
     modifier firstTimeGenerating(address sender) {
         if (generatedEggs[sender] != 0) {
             revert CannotGenerateEgg();
@@ -74,6 +80,8 @@ contract EasterEggs is VRFConsumerBaseV2, KeeperCompatibleInterface {
         _;
     }
 
+    /// @dev Modifier that checks if the egg can be edited
+    /// @param egg Struct of type Egg which represents the current egg we check if can be edited
     modifier canBeEdited(Egg memory egg) {
         if (
             egg.timesEdited >= 2 &&
@@ -84,6 +92,7 @@ contract EasterEggs is VRFConsumerBaseV2, KeeperCompatibleInterface {
         _;
     }
 
+    /// @dev constructor Add needed params for the VRFConsumerBaseV2 and also set the owner of the contract and the state
     constructor(
         address vrfCoordinatorV2,
         bytes32 _gasLane,
@@ -98,10 +107,14 @@ contract EasterEggs is VRFConsumerBaseV2, KeeperCompatibleInterface {
         callbackgasLimit = _callbackgasLimit;
     }
 
+    /// @dev Function for closing the contract(generating and sending eggs)
     function closeContract() external onlyOwner(msg.sender) isOpen {
         state = 0;
     }
 
+    /// @dev Function for generating egg
+    /// @param wish String which represents what wish the user wants for his/her egg
+    /// @param colour String which represents what colour the user wants for his/her egg
     function generateEgg(
         string memory wish,
         string memory colour
@@ -113,6 +126,9 @@ contract EasterEggs is VRFConsumerBaseV2, KeeperCompatibleInterface {
         emit EggGenerated(msg.sender, wish, colour);
     }
 
+    /// @dev Function for sending egg
+    /// @param receiver The address of the receiver of an egg
+    /// @param egg The egg the msg.sender wants to send
     function sendEgg(address receiver, Egg memory egg) external isOpen {
         if (timesSent[msg.sender] != 0) {
             revert CannotSendMoreEggs();
@@ -133,6 +149,10 @@ contract EasterEggs is VRFConsumerBaseV2, KeeperCompatibleInterface {
         emit EggSent(msg.sender, receiver, egg);
     }
 
+    /// @dev Function for editing egg
+    /// @param wish String which represents what wish our egg to have
+    /// @param colour String which represents what colour our egg to have
+    /// @param egg The egg we want to edit
     function editEgg(
         string memory wish,
         string memory colour,
@@ -153,6 +173,8 @@ contract EasterEggs is VRFConsumerBaseV2, KeeperCompatibleInterface {
         emit EggEdited(wish, colour, existing);
     }
 
+    /// @dev Function for request an answer by the Easter Bunny
+    /// @param egg The egg we are sending to the Easter Bunny
     function requestAnswer(Egg memory egg) external payable {
         if (msg.value < ANSWER_FUNDS) {
             revert InsuffiecientFunds();
@@ -171,6 +193,7 @@ contract EasterEggs is VRFConsumerBaseV2, KeeperCompatibleInterface {
         emit AnswerRequested();
     }
 
+    /// @dev Function for checking if all data is correct before getting a random number
     function checkUpkeep(
         bytes memory /* checkData */
     )
@@ -182,6 +205,7 @@ contract EasterEggs is VRFConsumerBaseV2, KeeperCompatibleInterface {
         upkeepNeeded = eggs[msg.sender].length != 0;
     }
 
+    /// @dev Function that triggers a Chainlink VRF call if chackUpkeep returns true
     function performUpkeep(bytes calldata /*performData*/) external {
         (bool upkeepNeeded, ) = checkUpkeep("");
         if (!upkeepNeeded) {
@@ -199,6 +223,7 @@ contract EasterEggs is VRFConsumerBaseV2, KeeperCompatibleInterface {
         emit AnswerPerformed(requestId);
     }
 
+    /// @dev Function that Chainlink VRF node calls
     function fulfillRandomWords(
         uint256 /*requestId*/,
         uint256[] memory randomWords
@@ -208,62 +233,82 @@ contract EasterEggs is VRFConsumerBaseV2, KeeperCompatibleInterface {
         emit AnswerPicked(indexOfAnswer);
     }
 
+    /// @dev Function that returns the eggs the user has
+    /// param sender Address of the user we want to see current eggs
     function getUsersEggs(address sender) external view returns (Egg[] memory) {
         return eggs[sender];
     }
 
+    /// @dev Function that returns the number of eggs a user has
+    /// param sender Address of the user we want to see current number of eggs
     function getUsersEggsLength(
         address sender
     ) external view returns (uint256) {
         return eggs[sender].length;
     }
 
+    /// @dev Function that returns the number of eggs the user has given to the Easter Bunny
+    /// param userAddress Address of the user we want to see current number of eggs given to the Easter Bunny
     function getUsersEggsGiven(
         address userAddress
     ) external view returns (uint256) {
         return eggsGiven[userAddress];
     }
 
+    /// @dev Function that returns the address of the owner of the smart contract
     function getOwnerAddress() external view returns (address) {
         return owner;
     }
 
+    /// @dev Function that returns the state of the contract
     function getContractState() external view returns (uint256) {
         return state;
     }
 
+    /// @dev Function that returns the funds the user needs to send to receiver answer from the Easter Bunny
     function getAnswerFunds() external pure returns (uint256) {
         return ANSWER_FUNDS;
     }
 
+    /// @dev Function that returns the edit interval
     function getEditInterval() external pure returns (uint256) {
         return EDIT_INTERVAL;
     }
 
+    /// @dev Functions that returns the request confirmations
     function getRequestConfirmations() external pure returns (uint256) {
         return REQUEST_CONFIRMATIONS;
     }
 
+    /// @dev Function that returns the number of words we want from the Chainlink VRF
     function getNumberOfWords() external pure returns (uint256) {
         return NUM_WORDS;
     }
 
+    /// @dev Function that returns the number of answers that can be returned by the Easter Bunny
     function getNumberOfAnswers() external pure returns (uint256) {
         return NUM_ANSWERS;
     }
 
+    /// @dev Function that returns the gas lane for the Chainlink VRF
     function getGasLane() external view returns (bytes32) {
         return gasLane;
     }
 
+    /// @dev Function that returns the subscriptionId for the Chainlink VRF
     function getSubscriptionId() external view returns (uint256) {
         return subscriptionId;
     }
 
+    /// @dev Function that returns the callback gas limit for the Chainlink VRF
     function getCallbackgasLimit() external view returns (uint256) {
         return callbackgasLimit;
     }
 
+    /// @dev Function that returns the index of the egg of a given user
+    /// @param sender The user in which eggs we are searching
+    /// @param egg The egg we are searching for
+    /// @notice In order to test this function make it public and remove the 'x' in front of describe function(line 392 in EasterEggs.test.js)
     function getEggIndex(
         address sender,
         Egg memory egg
